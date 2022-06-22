@@ -4,9 +4,9 @@ from skimage import io, transform
 import matplotlib.pyplot as plt
 
 # from pydaily import filesystem
-from ext import filesystem
+from ext.pydaily import filesystem
 # from pyslide import pyramid
-from ext import pyramid
+from ext.pyslide import pyramid
 # =======
 
 def get_slide_filenames(slides_dir, ignore_dirs=[]):
