@@ -70,10 +70,10 @@ def gen_samples(slides_dir, patch_level, patch_size, tumor_type, slide_list, dse
 		if not os.path.exists(dset_slides_dir):
 			os.makedirs(dset_slides_dir)
 		cur_slide_path_slink = os.path.join(dset_slides_dir, os.path.basename(cur_slide_path))
-		if not os.path.exists(cur_slide_path_slink):
+		if not os.path.islink(cur_slide_path_slink):
 			os.symlink(cur_slide_path, cur_slide_path_slink)
 		mask_path_slink = os.path.join(dset_slides_dir, os.path.basename(mask_path))
-		if not os.path.exists(mask_path_slink):
+		if not os.path.islink(mask_path_slink):
 			os.symlink(mask_path, mask_path_slink)
 
 		for cur_arr in coors_arr:
