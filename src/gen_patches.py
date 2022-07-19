@@ -1,121 +1,89 @@
 import os
-# import warnings
-# warnings.filterwarnings("ignore")
-
-import numpy as np
 import cv2
-import uuid
-from skimage import io, transform
+import tifffile
+import openslide
+import numpy as np
+from tqdm import trange
 from sklearn.model_selection import train_test_split
 
-import tissueloc as tl
-from ext.pyslide import pyramid, contour, patch
-from ext.pycontour.cv2_transform import cv_cnt_to_np_arr
-from ext.pycontour.poly_transform import np_arr_to_poly, poly_to_np_arr
+def gen_patches(slides_dir, slide_list, dset, patch_size, patch_save_dir, tissue_masks_dir, min_tissue=None, patch_overlap=0.5):
+	if not os.path.exists(patch_save_dir):
+		os.makedirs(patch_save_dir)
 
-from ext.pydaily.filesystem import overwrite_dir
-
-def gen_samples(slides_dir, patch_level, patch_size, tumor_type, slide_list, dset, overlap_mode, patch_save_dir):
-	# prepare saving directory
-	patch_path = os.path.join(patch_save_dir, "patches", tumor_type)
-	patch_img_dir = os.path.join(patch_path, dset, "imgs")
-	if not os.path.exists(patch_img_dir):
-		os.makedirs(patch_img_dir)
-	patch_mask_dir = os.path.join(patch_path, dset, "masks")
-	if not os.path.exists(patch_mask_dir):
-		os.makedirs(patch_mask_dir)
-
-	# processing slide one-by-one
-	ttl_patch = 0
 	slide_list.sort()
-	for ind, ele in enumerate(slide_list):
-		print("Processing {} {}/{}".format(ele, ind+1, len(slide_list)))
-		cur_slide_path = os.path.join(slides_dir, ele+".svs")
-		if not os.path.exists(cur_slide_path):
-			cur_slide_path = os.path.join(slides_dir, ele+".SVS")
 
-		# locate contours and generate batches based on tissue contours
-		cnts, d_factor = tl.locate_tissue_cnts(
-			cur_slide_path, max_img_size=2048, smooth_sigma=13,thresh_val=0.88, min_tissue_size=120000
-		)
-		select_level, select_factor = tl.select_slide_level(cur_slide_path, max_size=2048)
-		cnts = sorted(cnts, key=lambda x: cv2.contourArea(x), reverse=True)
+	if min_tissue is None:
+		min_tissue = patch_size * patch_size * 0.5 # minimum 0.5 => 50% or more tissue on every patch
 
-		# scale contour to slide level 2
-		wsi_head = pyramid.load_wsi_head(cur_slide_path)
-		cnt_scale = select_factor / int(wsi_head.level_downsamples[patch_level])
-		tissue_arr = cv_cnt_to_np_arr(cnts[0] * cnt_scale).astype(np.int32)
-		# convert tissue_arr to convex if poly is not valid
-		tissue_poly = np_arr_to_poly(tissue_arr)
-		if tissue_poly.is_valid == False:
-			tissue_arr = poly_to_np_arr(tissue_poly.convex_hull).astype(int)
+	for idx in trange(0, len(slide_list)):
+		cur_slide_path = os.path.join(slides_dir, slide_list[idx]) # slide path without file extension
+		wsi = openslide.OpenSlide(cur_slide_path + ".svs")
+		wsi_w, wsi_h = wsi.dimensions
 
-		coors_arr = None
-		if overlap_mode == "half_overlap":
-			level_w, level_h = wsi_head.level_dimensions[patch_level]
-			coors_arr = contour.contour_patch_splitting_half_overlap(
-				tissue_arr, level_h, level_w, patch_size, inside_ratio=0.80
-			)
-		else:
-			raise NotImplementedError("unknown overlapping mode")
+		tissue_mask = tifffile.imread(os.path.join(tissue_masks_dir, slide_list[idx]) + f"_tissue.tif")
+		whole_mask = tifffile.imread(cur_slide_path + "_whole.tif")
+		viable_mask = tifffile.imread(cur_slide_path + "_viable.tif")
 
-		wsi_img = wsi_head.read_region((0, 0), patch_level, wsi_head.level_dimensions[patch_level])
-		wsi_img = np.asarray(wsi_img)[:,:,:3]
-		mask_path = os.path.join(slides_dir, "_".join([ele, tumor_type+".tif"]))
-		mask_img = io.imread(mask_path)
-		wsi_mask = (transform.resize(mask_img, wsi_img.shape[:2], order=0) * 255).astype(np.uint8) * 255
-
-		# Create symbolic links for data splits
-		dset_slides_dir = os.path.join(patch_save_dir, dset+"_slides")
-		if not os.path.exists(dset_slides_dir):
-			os.makedirs(dset_slides_dir)
-		cur_slide_path_slink = os.path.join(dset_slides_dir, os.path.basename(cur_slide_path))
-		if not os.path.islink(cur_slide_path_slink):
-			os.symlink(cur_slide_path, cur_slide_path_slink)
-		mask_path_slink = os.path.join(dset_slides_dir, os.path.basename(mask_path))
-		if not os.path.islink(mask_path_slink):
-			os.symlink(mask_path, mask_path_slink)
-
-		for cur_arr in coors_arr:
-			cur_h, cur_w = cur_arr[0], cur_arr[1]
-			cur_patch = wsi_img[cur_h:cur_h+patch_size, cur_w:cur_w+patch_size]
-			if cur_patch.shape[0] != patch_size or cur_patch.shape[1] != patch_size:
-				continue
-			cur_mask = wsi_mask[cur_h:cur_h+patch_size, cur_w:cur_w+patch_size]
-			# background RGB (235, 210, 235) * [0.299, 0.587, 0.114]
-			if patch.patch_bk_ratio(cur_patch, bk_thresh=0.864) > 0.88:
-				continue
-
-			if overlap_mode == "half_overlap" and tumor_type == "viable":
-				pixel_ratio = np.sum(cur_mask > 0) * 1.0 / cur_mask.size
-				if pixel_ratio < 0.05:
+		tissue_patch_dir = os.path.join(patch_save_dir, dset, "tissue")
+		tissue_mask_patch_dir = os.path.join(patch_save_dir, dset, "tissue_mask")
+		whole_patch_dir = os.path.join(patch_save_dir, dset, "whole")
+		viable_patch_dir = os.path.join(patch_save_dir, dset, "viable")
+		if not os.path.exists(tissue_patch_dir):
+			os.makedirs(tissue_patch_dir)
+		if not os.path.exists(tissue_mask_patch_dir):
+			os.makedirs(tissue_mask_patch_dir)
+		if not os.path.exists(whole_patch_dir):
+			os.makedirs(whole_patch_dir)
+		if not os.path.exists(viable_patch_dir):
+			os.makedirs(viable_patch_dir)
+		step = int(patch_size * (1.0 - patch_overlap))
+		for i in range(0, wsi_h - patch_size, step):
+			for j in range(0, wsi_w - patch_size, step):
+				tissue_mask_patch = tissue_mask[i:i + patch_size, j:j + patch_size]
+				tissue_mask_sum = tissue_mask_patch.sum() / 255
+				if tissue_mask_sum < min_tissue:
 					continue
-
-			patch_name = ele + "_" + str(uuid.uuid1())[:8]
-			io.imsave(os.path.join(patch_img_dir, patch_name+".jpg"), cur_patch, check_contrast=False)
-			io.imsave(os.path.join(patch_mask_dir, patch_name+".png"), cur_mask, check_contrast=False)
-			ttl_patch += 1
-
-	print("There are {} patches in total.".format(ttl_patch))
+				# if tissue_mask[i:i+window_size,j:j+window_size].sum()<400000:
+				# 	continue
+				tissue_patch = wsi.read_region((j, i), 0, (patch_size, patch_size)).convert("RGB")
+				tissue_patch = np.array(tissue_patch)
+				# patch=cv2.cvtColor(patch,cv2.COLOR_RGB2BGR)
+				whole_mask_patch = whole_mask[i:i + patch_size, j:j + patch_size]
+				viable_mask_patch = viable_mask[i:i + patch_size, j:j + patch_size]
+				cv2.imwrite(os.path.join(tissue_patch_dir, slide_list[idx] + f"_{idx}_{i}_{j}.jpg"), tissue_patch)
+				cv2.imwrite(os.path.join(tissue_mask_patch_dir, slide_list[idx] + f"_{idx}_{i}_{j}.png"), tissue_mask_patch)
+				cv2.imwrite(os.path.join(whole_patch_dir, slide_list[idx] + f"_{idx}_{i}_{j}.png"), whole_mask_patch)
+				cv2.imwrite(os.path.join(viable_patch_dir, slide_list[idx] + f"_{idx}_{i}_{j}.png"), viable_mask_patch)
 
 if __name__ == "__main__":
-	# prepare train, validation and test slide list
-	mask_dir = "../data/visualization/train/tissue_loc"
-	slide_list = [os.path.splitext(ele)[0] for ele in os.listdir(mask_dir) if "png" in ele]
+	slides_dir = "../data/dataset/train"
+	slide_list = [os.path.splitext(ele)[0] for ele in os.listdir(slides_dir) if "svs" in ele]
+
 	train_slide_list, val_slide_list = train_test_split(slide_list, test_size=0.2, random_state=1234)
 	val_slide_list, test_slide_list = train_test_split(val_slide_list, test_size=0.5, random_state=1234)
-	# generate patches for segmentation model training
-	slides_dir = "../data/dataset/train"
-	patch_level, patch_size = 2, 512
-	# tumor_type = "viable"
-	tumor_types = ["viable", "whole"]
-	patch_save_dir = "../data"
-	for cur_type in tumor_types:
-		print("Generating {} tumor patches.".format(cur_type))
-		patch_modes = [
-			(test_slide_list, "test", "half_overlap"),
-			(val_slide_list, "val", "half_overlap"),
-			(train_slide_list, "train", "half_overlap")
-		]
-		for mode in patch_modes:
-			gen_samples(slides_dir, patch_level, patch_size, cur_type, mode[0], mode[1], overlap_mode=mode[2], patch_save_dir=patch_save_dir)
+
+	patch_size = 1024
+	patch_overlap = 0.5
+	min_tissue_const = 0.8 # minimum 0.8 => 80% or more tissue on every patch
+	min_tissue = patch_size * patch_size * min_tissue_const
+	patch_save_dir = f"../data/patches/ps_{patch_size}_po_{patch_overlap}_mt_{min_tissue_const}_temp"
+
+
+	tissue_masks_dir = "../data/tissue_masks"
+
+	patch_modes = [
+		(test_slide_list, "test"),
+		(val_slide_list, "val"),
+		(train_slide_list, "train")
+	]
+	for mode in patch_modes:
+		gen_patches(
+			slides_dir,
+			slide_list=mode[0],
+			dset=mode[1],
+			patch_size=patch_size,
+			patch_save_dir=patch_save_dir,
+			tissue_masks_dir=tissue_masks_dir,
+			min_tissue=min_tissue,
+			patch_overlap=patch_overlap,
+		)
