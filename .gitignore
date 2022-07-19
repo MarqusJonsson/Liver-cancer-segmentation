@@ -1,5 +1,9 @@
 # Folders
 data/
+old/
+pred_samples/
+saved_models/
+view_patches/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
