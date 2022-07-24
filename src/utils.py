@@ -100,6 +100,8 @@ def check_performance(loader, model, device="cuda"):
 	num_pixels = 0
 	dice_score = 0
 	jaccard_score = 0
+	jaccard_score_clipped = 0
+	jaccard_score_clip_threshold = 0.65
 	model.eval()
 
 	with torch.no_grad():
@@ -115,16 +117,21 @@ def check_performance(loader, model, device="cuda"):
 			# f1_s += f1_score(y.flatten(), preds.flatten())
 			# jaccard_scr2 += jaccard_score(y.cpu().flatten(), preds.cpu().flatten())
 			dice_score += calc_dice(preds, y)
-			jaccard_score += calc_jaccard(preds, y)
+			j_s = calc_jaccard(preds, y)
+			jaccard_score += j_s
+			if j_s >= jaccard_score_clip_threshold:
+				jaccard_score_clipped += j_s
 
 	result = {
 		"dice": dice_score/len(loader),
 		"acc": num_correct/num_pixels,
 		"jaccard": jaccard_score/len(loader),
+		"jaccard_clipped": jaccard_score_clipped/len(loader),
 	}
 	print(f"Got {num_correct}/{num_pixels} with acc: {result['acc']}")
 	print(f"Dice score: {result['dice']}")
 	print(f"Jaccard score: {result['jaccard']}")
+	print(f"Jaccard score clipped: {result['jaccard_clipped']}")
 	model.train()
 	return result
 
