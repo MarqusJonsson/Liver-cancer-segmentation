@@ -1,12 +1,14 @@
+import datetime
 import os
 import torch
 import torchvision
 from dataset import PAIP2019Dataset
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
+from tqdm import tqdm
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
-	print("=> Saving checkpoint")
+	print("Saving checkpoint...")
 	torch.save(state, filename)
 
 def load_checkpoint(checkpoint, model):
@@ -95,20 +97,24 @@ def calc_jaccard_clipped(preds, targets, threshold=0.65):
 	if score < threshold: return 0
 	return score
 
-def check_performance(loader, model, device="cuda"):
+def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
 	num_correct = 0
 	num_pixels = 0
 	dice_score = 0
 	jaccard_score = 0
 	jaccard_score_clipped = 0
 	jaccard_score_clip_threshold = 0.65
+	loss = 0
 	model.eval()
 
 	with torch.no_grad():
-		for x, y in loader:
+		loop = tqdm(loader)
+		for batch_idx, (x, y) in enumerate(loop):
 			x = x.float().to(device)
 			y = y.float().to(device).unsqueeze(1)
-			preds = torch.sigmoid(model(x))
+			preds = model(x)
+			loss += loss_fn(preds, y)
+			preds = torch.sigmoid(preds)
 			preds = (preds > 0.5).float()
 			num_correct += (preds == y).sum()
 			num_pixels += torch.numel(preds)
@@ -123,17 +129,24 @@ def check_performance(loader, model, device="cuda"):
 				jaccard_score_clipped += j_s
 
 	result = {
-		"dice": dice_score/len(loader),
-		"acc": num_correct/num_pixels,
-		"jaccard": jaccard_score/len(loader),
-		"jaccard_clipped": jaccard_score_clipped/len(loader),
+		result_prefix + "loss": loss/len(loader),
+		result_prefix + "dice": dice_score/len(loader),
+		result_prefix + "acc": num_correct/num_pixels,
+		result_prefix + "jaccard": jaccard_score/len(loader),
+		result_prefix + "jaccard_clipped": jaccard_score_clipped/len(loader),
 	}
-	print(f"Got {num_correct}/{num_pixels} with acc: {result['acc']}")
-	print(f"Dice score: {result['dice']}")
-	print(f"Jaccard score: {result['jaccard']}")
-	print(f"Jaccard score clipped: {result['jaccard_clipped']}")
+
 	model.train()
 	return result
+
+def save_dict_as_csv(filename, dict, delimiter="|"):
+	data_to_save = ""
+	if not os.path.isfile(filename):
+		data_to_save += delimiter.join(key for key in dict.keys()) + "\n"
+	data_to_save += delimiter.join(str(value.item()) if torch.is_tensor(value) else str(value) for value in dict.values()) + "\n"
+	with open(filename, "a") as f:
+		f.write(data_to_save)
+
 
 def save_predictions_as_imgs(
 	loader, model, folder="saved_images/", device="cuda", max_imgs=5
@@ -152,3 +165,6 @@ def save_predictions_as_imgs(
 		torchvision.utils.save_image(y.unsqueeze(1), f"{folder}/gt_{idx}.png")
 	
 	model.train()
+
+def getDatetime():
+	return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
