@@ -4,6 +4,7 @@ old/
 pred_samples/
 saved_models/
 view_patches/
+exp/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
