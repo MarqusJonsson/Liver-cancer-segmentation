@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,3,4,5"
 from pathlib import Path
 import argparse
 import json
@@ -104,8 +104,8 @@ def main(args):
 	# 	sampler=sampler,
 	# )
 
-	TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/train/tissue"
-	TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/train/viable"
+	TRAIN_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/tissue"
+	TRAIN_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/viable"
 
 	train_ds = PAIP2019Dataset(
 		image_dir=TRAIN_IMG_DIR,
@@ -358,7 +358,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser('VICReg training script', parents=[get_arguments()])
 	args = parser.parse_args()
 	args.arch = "resnet50"
-	args.epochs = 100
-	args.batch_size = int(4)
+	args.epochs = 10
+	args.batch_size = int(128)
 	args.base_lr = 0.3
 	main(args)

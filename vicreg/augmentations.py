@@ -40,52 +40,18 @@ class TrainTransform(object):
             [
                 transforms.ToPILImage(), 
                 transforms.Resize((224, 224)),
-                # transforms.RandomResizedCrop(
-                #     224, interpolation=InterpolationMode.BICUBIC
-                # ),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomApply(
-                #     [
-                #         transforms.ColorJitter(
-                #             brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1
-                #         )
-                #     ],
-                #     p=0.8,
-                # ),
-                # transforms.RandomGrayscale(p=0.2),
-                # GaussianBlur(p=1.0),
-                # Solarization(p=0.0),
                 transforms.ToTensor(),
-                # transforms.Normalize(
-                #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                # ),
             ]
         )
-        self.transform_prime = transforms.Compose(
+        self.transform_second_view = transforms.Compose(
             [
-                # transforms.RandomResizedCrop(
-                #     224, interpolation=InterpolationMode.BICUBIC
-                # ),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomApply(
-                #     [
-                #         transforms.ColorJitter(
-                #             brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1
-                #         )
-                #     ],
-                #     p=0.8,
-                # ),
-                # transforms.RandomGrayscale(p=0.2),
-                # GaussianBlur(p=0.1),
-                # Solarization(p=0.2),
+                transforms.ToPILImage(), 
+                transforms.Resize((224, 224)),
                 transforms.ToTensor(),
-                # transforms.Normalize(
-                #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                # ),
             ]
         )
 
-    def __call__(self, image, mask):
-        x1 = self.transform(image)
-        x2 = self.transform_prime(mask)
-        return x1, x2
+    def __call__(self, image, second_view_image):
+        transformed_image = self.transform(image)
+        transformed_second_view_image = self.transform_second_view(second_view_image)
+        return transformed_image, transformed_second_view_image

@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Dict, List, Set
 
 class PatchData:
 	# Class for storing information about a patch
@@ -14,7 +15,7 @@ class PatchData:
 		self.y: int = y
 		self.file_extension: str = file_extension
 
-def create_patch_neighbour_dict(filenames: list[str], patch_size: int = 1024, patch_overlap: int = 0.5) -> dict[str, list[str]]:
+def create_patch_neighbour_dict(filenames: List[str], patch_size: int = 1024, patch_overlap: int = 0.5) -> Dict[str, List[str]]:
 	"""
 	Given a list of filenames, returns a dictionary whose keys are filenames
 	and values are lists of filenames of neighbouring patches.
@@ -25,7 +26,7 @@ def create_patch_neighbour_dict(filenames: list[str], patch_size: int = 1024, pa
 		patch_neighbour_dict[filename] = find_neighbours(filename, filenames_set, patch_size, patch_overlap)
 	return patch_neighbour_dict
 
-def find_neighbours(filename: str, filenames_set: set[str], patch_size: int, patch_overlap: int) -> list[str]:
+def find_neighbours(filename: str, filenames_set: Set[str], patch_size: int, patch_overlap: int) -> List[str]:
 	"""
 	Given a filename and a set of filenames, returns a list of filenames that
 	are considered to be neighbours of the input filename.
