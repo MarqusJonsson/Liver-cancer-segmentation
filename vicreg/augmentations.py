@@ -8,8 +8,8 @@
 from PIL import ImageOps, ImageFilter
 import numpy as np
 import torchvision.transforms as transforms
-from torchvision.transforms import InterpolationMode
-
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 class GaussianBlur(object):
     def __init__(self, p):
@@ -36,22 +36,28 @@ class Solarization(object):
 
 class TrainTransform(object):
     def __init__(self):
-        self.transform = transforms.Compose(
+        self.transform = A.Compose(
             [
-                transforms.ToPILImage(), 
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
+                A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, always_apply=False, p=0.3),
+                A.Flip(always_apply=False, p=0.3),
+                A.Rotate(always_apply=False, p=0.3),
+                A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
+                A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
+                ToTensorV2(),
             ]
         )
-        self.transform_second_view = transforms.Compose(
+        self.transform_second_view = A.Compose(
             [
-                transforms.ToPILImage(), 
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
+                A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, always_apply=False, p=0.3),
+                A.Flip(always_apply=False, p=0.3),
+                A.Rotate(always_apply=False, p=0.3),
+                A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
+                A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
+                ToTensorV2(),
             ]
         )
 
     def __call__(self, image, second_view_image):
-        transformed_image = self.transform(image)
-        transformed_second_view_image = self.transform_second_view(second_view_image)
-        return transformed_image, transformed_second_view_image
+        transformed_image = self.transform(image=image)
+        transformed_second_view_image = self.transform_second_view(image=second_view_image)
+        return transformed_image["image"], transformed_second_view_image["image"]

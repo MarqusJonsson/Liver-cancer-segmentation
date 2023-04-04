@@ -21,9 +21,7 @@ class PAIP2019Dataset(Dataset):
 		mask[mask == 255.0] = 1.0 # might not be needed
 
 		if self.transform is not None:
-			augmentations = self.transform(image=image, mask=mask)
-			image = augmentations["image"]
-			mask = augmentations["mask"]
+			image, mask = self.transform(image=image, mask=mask)
 		return image, mask
 
 class PAIP2019DatasetVICReg(Dataset):

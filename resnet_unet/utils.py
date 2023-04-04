@@ -80,60 +80,65 @@ def get_test_loader(
 
 	return test_loader
 
-def calc_dice(preds, targets):
-	# smooth = 1
-	# pflat = preds.view(-1)
-	# tflat = targets.view(-1)
-	# dice = ((2. * (pflat * tflat).sum() + smooth) / (pflat.sum() + tflat.sum() + smooth))
-	return smp.utils.metrics.F.f_score(preds, targets)
+def calc_dice(predictions, targets, smooth=1e-5):
+	# calculate intersection and union of the binary tensors
+	intersection = torch.sum(predictions * targets)
+	union = torch.sum(predictions) + torch.sum(targets)
 
-def calc_jaccard(preds, targets):
-	# intersection = (preds * targets).sum()
-	# return intersection / ((preds + targets).sum() - intersection + 1e-8)
-	return smp.utils.metrics.F.jaccard(preds, targets)
+	# calculate Dice coefficient
+	dice = (2 * intersection + smooth) / (union + smooth)
 
-def calc_jaccard_clipped(preds, targets, threshold=0.65):
-	score = smp.utils.metrics.F.jaccard(preds, targets)
-	if score < threshold: return 0
-	return score
+	return dice
+
+
+def calc_jaccard(predictions, targets):
+	# calculate intersection and union of the binary tensors
+	intersection = torch.sum(predictions * targets)
+	union = torch.sum(predictions) + torch.sum(targets) - intersection
+
+	# calculate Jaccard score
+	jaccard = intersection / union
+
+	return jaccard
+
+# def calc_jaccard_clipped(preds, targets, threshold=0.65):
+# 	score = smp.metrics.functional.jaccard(preds, targets)
+# 	if score < threshold: return 0
+# 	return score
 
 def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
 	num_correct = 0
 	num_pixels = 0
-	dice_score = 0
-	jaccard_score = 0
-	jaccard_score_clipped = 0
+	total_dice_score = 0
+	total_jaccard_score = 0
+	total_jaccard_score_clipped = 0
 	jaccard_score_clip_threshold = 0.65
-	loss = 0
+	total_loss = 0
 	model.eval()
 
 	with torch.no_grad():
 		loop = tqdm(loader)
 		for batch_idx, (x, y) in enumerate(loop):
 			x = x.float().to(device)
-			y = y.float().to(device).unsqueeze(1)
-			preds = model(x)
-			loss += loss_fn(preds, y)
-			preds = torch.sigmoid(preds)
-			preds = (preds > 0.5).float()
-			num_correct += (preds == y).sum()
-			num_pixels += torch.numel(preds)
-			# y_cpu = y.cpu().numpy().flatten()
-			# preds_cpu = preds.cpu().numpy().flatten()
-			# f1_s += f1_score(y.flatten(), preds.flatten())
-			# jaccard_scr2 += jaccard_score(y.cpu().flatten(), preds.cpu().flatten())
-			dice_score += calc_dice(preds, y)
-			j_s = calc_jaccard(preds, y)
-			jaccard_score += j_s
-			if j_s >= jaccard_score_clip_threshold:
-				jaccard_score_clipped += j_s
+			y = y.float().to(device)
+			predictions = model(x)
+			total_loss += loss_fn(predictions, y)
+			predictions = torch.sigmoid(predictions)
+			#  convert to binary tensors
+			predictions = (predictions > 0.5).float()
+			accuracy = torch.mean((predictions == y).float())
+			total_dice_score += calc_dice(predictions, y)
+			jaccard_score = calc_jaccard(predictions, y)
+			total_jaccard_score += jaccard_score
+			if jaccard_score >= jaccard_score_clip_threshold:
+				total_jaccard_score_clipped += jaccard_score
 
 	result = {
-		result_prefix + "loss": loss/len(loader),
-		result_prefix + "dice": dice_score/len(loader),
-		result_prefix + "acc": num_correct/num_pixels,
-		result_prefix + "jaccard": jaccard_score/len(loader),
-		result_prefix + "jaccard_clipped": jaccard_score_clipped/len(loader),
+		result_prefix + "loss": total_loss/len(loader),
+		result_prefix + "dice": total_dice_score/len(loader),
+		result_prefix + "acc": accuracy, # num_correct/num_pixels,
+		result_prefix + "jaccard": total_jaccard_score/len(loader),
+		result_prefix + "jaccard_clipped": total_jaccard_score_clipped/len(loader),
 	}
 
 	model.train()

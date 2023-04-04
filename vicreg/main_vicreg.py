@@ -3,9 +3,9 @@
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
+# rung using: python3 -m torch.distributed.launch --nproc_per_node=4 main_vicreg.py
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,3,4,5"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,3,6,7"
 from pathlib import Path
 import argparse
 import json
@@ -87,8 +87,11 @@ def main(args):
 	if args.rank == 0:
 		args.exp_dir.mkdir(parents=True, exist_ok=True)
 		stats_file = open(args.exp_dir / "stats.txt", "a", buffering=1)
-		print(" ".join(sys.argv))
-		print(" ".join(sys.argv), file=stats_file)
+
+		arg_list = [f"{arg}: {getattr(args, arg)}" for arg in vars(parser.parse_args())]
+
+		print(" ".join(sys.argv) + ", ".join(arg_list))
+		print(" ".join(sys.argv) + ", ".join(arg_list), file=stats_file)
 
 	transforms = aug.TrainTransform()
 
@@ -151,8 +154,8 @@ def main(args):
 	for epoch in range(start_epoch, args.epochs):
 		sampler.set_epoch(epoch)
 		for step, ((x, y)) in enumerate(train_loader, start=epoch * len(train_loader)):
-			x = x.cuda(gpu, non_blocking=True)
-			y = y.cuda(gpu, non_blocking=True)
+			x = x.float().to(device="cuda")# cuda(gpu, non_blocking=True)
+			y = y.float().to(device="cuda")# cuda(gpu, non_blocking=True)
 
 			lr = adjust_learning_rate(args, optimizer, train_loader, step)
 
@@ -182,6 +185,11 @@ def main(args):
 				optimizer=optimizer.state_dict(),
 			)
 			torch.save(state, args.exp_dir / "model.pth")
+			modelEpoch = state.get("epoch")
+			# Save model every 50 epochs
+			if modelEpoch % 50 == 0:
+				torch.save(state, args.exp_dir / "model_epoch_" + str(modelEpoch) + ".pth")
+				torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50_epoch_" + str(modelEpoch) + ".pth")
 	if args.rank == 0:
 		torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50.pth")
 
@@ -358,7 +366,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser('VICReg training script', parents=[get_arguments()])
 	args = parser.parse_args()
 	args.arch = "resnet50"
-	args.epochs = 10
-	args.batch_size = int(128)
+	args.epochs = 1000
+	args.batch_size = int(512)
 	args.base_lr = 0.3
 	main(args)

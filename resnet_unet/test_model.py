@@ -1,12 +1,8 @@
 import os
-GPUS =  "5,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
+GPUS =  "1,3,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,3,6,7"
 import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import torch.nn.functional as F
-from tqdm import tqdm
-import torch.optim as optim
 import segmentation_models_pytorch as smp
 from utils import (
 	calc_dice,
@@ -20,24 +16,22 @@ from utils import (
 	save_predictions_as_imgs,
 )
 import time;
-
+import augmentations as aug
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 16
 NUM_WORKERS = 2
 PIN_MEMORY = True
-LOAD_MODEL = False
-TEST_IMG_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/test/tissue"
-TEST_MASK_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/test/viable"
+LOAD_MODEL = True
+TEST_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/test/tissue"
+TEST_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/test/viable"
 ENCODER = "resnet50"
 BCE_WEIGHT = 0.1
 TEST_INFO_FILENAME = "test_results.csv"
-MODEL_LOAD_PATH = "saved_models/unet_resnet50/imagenet_weights/no_preproc/viable/20221028/e_19_l_0.1133_d_20221028T110244Z.pt"
+MODEL_LOAD_PATH = "exp/vicreg_viable/e_8_l_0.3803_d_20230329T223949Z.pt"
 
 def main():
-	test_transforms = A.Compose([
-		ToTensorV2(),
-	])
+	test_transforms = aug.TrainTransform()
 
 	model = smp.Unet(encoder_name=ENCODER, in_channels=3, classes=1).to(device=DEVICE)
 	model = torch.nn.DataParallel(model)

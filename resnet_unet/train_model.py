@@ -1,10 +1,9 @@
 import os
-GPUS =  "5,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
+GPUS = "0,1,3,6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,3,6"
 import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 from tqdm import tqdm
 import torch.optim as optim
 import segmentation_models_pytorch as smp
@@ -20,6 +19,7 @@ from utils import (
 	save_predictions_as_imgs,
 )
 import time
+import augmentations as aug
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -28,17 +28,18 @@ BATCH_SIZE = 16
 MAX_NUM_EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
-LOAD_MODEL = False
-TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/train/tissue"
-TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/train/viable"
-VAL_IMG_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/val/tissue"
-VAL_MASK_DIR = "../data/patches/ps_1024_po_0.5_mt_0.8/val/viable"
+LOAD_MODEL = True
+TRAIN_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/tissue"
+TRAIN_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/whole"
+VAL_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/val/tissue"
+VAL_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/val/whole"
 ENCODER = "resnet50"
-ENCODER_WEIGHT_INITIALIZATION = "imagenet" # None = random weight initialization, "imagenet" = imagenet weight innitialization
+ENCODER_WEIGHT_INITIALIZATION = None # None = random weight initialization, "imagenet" = imagenet weight innitialization
 BCE_WEIGHT = 0.1
 MAX_EPOCHS_WITHOUT_IMPROVEMENT = 5
 TRAINING_INFO_FILENAME = "results.csv"
 PARAMETER_INFO_FILENAME = "parameters.csv"
+LOAD_MODEL_PATH = "models/vicreg_resnet50_epoch_100_batch_size_512.pth"
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
 	print("Training model...")
@@ -46,7 +47,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 
 	for batch_idx, (data, targets) in enumerate(loop):
 		data = data.float().to(device=DEVICE)
-		targets = targets.float().unsqueeze(1).to(device=DEVICE)
+		targets = targets.float().to(device=DEVICE)
 
 		# forward
 		with torch.cuda.amp.autocast():
@@ -93,31 +94,8 @@ def check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch, 
 	return training_info
 
 def main():
-	train_transforms = A.Compose([
-		# A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-		# A.Rotate(limit=35, p=1.0),
-		# A.HorizontalFlip(p=0.5),
-		# A.VerticalFlip(p=0.1),
-		# ToTensor doesn't divide by 255 like PyTorch,
-		# it's done inside normalize function
-		# A.Normalize(
-		# 	mean=[0.0, 0.0, 0.0],
-		# 	std=[1.0, 1.0, 1.0],
-		# 	max_pixel_value=255.0,
-		# ),
-		ToTensorV2(),
-	])
-	val_transforms = A.Compose([
-		# A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-		# ToTensor doesn't divide by 255 like PyTorch,
-		# it's done inside normalize function
-		# A.Normalize(
-		# 	mean=[0.0, 0.0, 0.0],
-		# 	std=[1.0, 1.0, 1.0],
-		# 	max_pixel_value=255.0,
-		# ),
-		ToTensorV2(),
-	])
+	train_transforms = aug.TrainTransform()
+	val_transforms = aug.TrainTransform()
 
 	# model = UNet(in_channels=3, out_channels=1).to(device=DEVICE)
 	model = smp.Unet(encoder_name=ENCODER, in_channels=3, classes=1, encoder_weights=ENCODER_WEIGHT_INITIALIZATION)
@@ -128,9 +106,9 @@ def main():
 		bce = F.binary_cross_entropy_with_logits(pred, target)
 
 		pred = torch.sigmoid(pred)
-		dice = calc_dice(pred, target)
+		dice_score = calc_dice(pred, target)
 		# jaccard = calc_jaccard(pred, target)
-		loss = bce * bce_weight + (1.0 - dice) * (1.0 - bce_weight)
+		loss = bce * bce_weight + (1.0 - dice_score) * (1.0 - bce_weight)
 
 		return loss
 
@@ -151,7 +129,38 @@ def main():
 	)
 
 	if LOAD_MODEL:
-		load_checkpoint(torch.load("my_checkpoint.pt"), model)
+		vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
+
+		# total_sum = 0
+		# for key, value in vicreg_state_dict.items():
+		# 	total_sum += torch.sum(value)
+
+		# print("The sum of all state dictionary parameters is:", total_sum.item())
+
+		# state_dict = model.state_dict()
+
+		# total_sum = 0
+		# for key, value in state_dict.items():
+		# 	total_sum += torch.sum(value)
+
+		# print("The sum of all state dictionary parameters is:", total_sum.item())
+ 
+		model.module.encoder.load_state_dict(vicreg_state_dict)
+
+
+		# state_dict = model.state_dict()
+
+		# total_sum = 0
+		# for key, value in state_dict.items():
+		# 	total_sum += torch.sum(value)
+
+		# print("The sum of all state dictionary parameters is:", total_sum.item())
+
+		# load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
+		# print(state_dict.items())
+		# print(model.module)
+
+		# exit()
 	training_info = check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch=0, train_time=0)
 
 	scaler = torch.cuda.amp.GradScaler()
@@ -179,6 +188,7 @@ def main():
 			"TRAINING_INFO_FILENAME" : TRAINING_INFO_FILENAME,
 			"PARAMETER_INFO_FILENAME" : PARAMETER_INFO_FILENAME,
 			"MAX_EPOCHS_WITHOUT_IMPROVEMENT" : MAX_EPOCHS_WITHOUT_IMPROVEMENT,
+			"LOAD_MODEL_PATH" : LOAD_MODEL_PATH
 		}
 	)
 	model.train()
