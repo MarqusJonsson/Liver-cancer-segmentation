@@ -1,6 +1,6 @@
 import os
-GPUS = "0,1,3,6"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,3,6"
+GPUS = "3,4,5,6"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
@@ -29,17 +29,17 @@ MAX_NUM_EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-TRAIN_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/tissue"
-TRAIN_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/whole"
-VAL_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/val/tissue"
-VAL_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/val/whole"
+TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
+TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
+VAL_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/tissue"
+VAL_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/viable"
 ENCODER = "resnet50"
 ENCODER_WEIGHT_INITIALIZATION = None # None = random weight initialization, "imagenet" = imagenet weight innitialization
 BCE_WEIGHT = 0.1
 MAX_EPOCHS_WITHOUT_IMPROVEMENT = 5
 TRAINING_INFO_FILENAME = "results.csv"
 PARAMETER_INFO_FILENAME = "parameters.csv"
-LOAD_MODEL_PATH = "models/vicreg_resnet50_epoch_100_batch_size_512.pth"
+LOAD_MODEL_PATH = "e_2_l_0.2336_d_20230516T073406Z.pt"
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
 	print("Training model...")
@@ -129,7 +129,7 @@ def main():
 	)
 
 	if LOAD_MODEL:
-		vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
+		# vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
 
 		# total_sum = 0
 		# for key, value in vicreg_state_dict.items():
@@ -145,7 +145,7 @@ def main():
 
 		# print("The sum of all state dictionary parameters is:", total_sum.item())
  
-		model.module.encoder.load_state_dict(vicreg_state_dict)
+		# model.module.encoder.load_state_dict(vicreg_state_dict)
 
 
 		# state_dict = model.state_dict()
@@ -156,17 +156,18 @@ def main():
 
 		# print("The sum of all state dictionary parameters is:", total_sum.item())
 
-		# load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
+		load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
 		# print(state_dict.items())
 		# print(model.module)
 
 		# exit()
-	training_info = check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch=0, train_time=0)
+	# training_info = check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch=0, train_time=0)
 
 	scaler = torch.cuda.amp.GradScaler()
 
 	epochs_since_last_improvement = 0
-	best_val_loss = training_info["val_loss"]
+	# best_val_loss = training_info["val_loss"]
+	best_val_loss = 99999
 	# Save hyperparameters
 	save_dict_as_csv(
 		PARAMETER_INFO_FILENAME, {

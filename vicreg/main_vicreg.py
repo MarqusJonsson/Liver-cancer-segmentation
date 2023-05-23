@@ -3,9 +3,10 @@
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-# rung using: python3 -m torch.distributed.launch --nproc_per_node=4 main_vicreg.py
+# run using: python3 -m torch.distributed.launch --nproc_per_node=4 main_vicreg.py
+# run using (in python 3.10+?): python3 -m torch.distributed.run --nproc_per_node=4 main_vicreg.py
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,3,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6"
 from pathlib import Path
 import argparse
 import json
@@ -107,8 +108,8 @@ def main(args):
 	# 	sampler=sampler,
 	# )
 
-	TRAIN_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/tissue"
-	TRAIN_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/train/viable"
+	TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
+	TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
 
 	train_ds = PAIP2019Dataset(
 		image_dir=TRAIN_IMG_DIR,
@@ -151,6 +152,15 @@ def main(args):
 
 	start_time = last_logging = time.time()
 	scaler = torch.cuda.amp.GradScaler()
+
+	# state = dict(
+	# 	epoch=100,
+	# 	model=model.state_dict(),
+	# 	optimizer=optimizer.state_dict(),
+	# )
+	# torch.save(state, args.exp_dir / "model_epoch_100.pth")
+	# torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50_epoch_100.pth")
+
 	for epoch in range(start_epoch, args.epochs):
 		sampler.set_epoch(epoch)
 		for step, ((x, y)) in enumerate(train_loader, start=epoch * len(train_loader)):
@@ -186,10 +196,15 @@ def main(args):
 			)
 			torch.save(state, args.exp_dir / "model.pth")
 			modelEpoch = state.get("epoch")
-			# Save model every 50 epochs
-			if modelEpoch % 50 == 0:
-				torch.save(state, args.exp_dir / "model_epoch_" + str(modelEpoch) + ".pth")
-				torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50_epoch_" + str(modelEpoch) + ".pth")
+			print(modelEpoch, 50, "50")
+			print(modelEpoch == 50)
+			print(modelEpoch == "50")
+			print(modelEpoch % 50)
+			print(modelEpoch % 50 == 0)
+			# Save model every 10 epochs
+			if modelEpoch != 0 and modelEpoch % 10 == 0:
+				torch.save(state, args.exp_dir / f"model_epoch_{modelEpoch}.pth")
+				torch.save(model.module.backbone.state_dict(), args.exp_dir / f"resnet50_epoch_{modelEpoch}.pth")
 	if args.rank == 0:
 		torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50.pth")
 

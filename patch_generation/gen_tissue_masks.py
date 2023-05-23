@@ -5,7 +5,7 @@ from scipy.ndimage import label
 from tqdm import trange
 from skimage.measure import regionprops
 import os, warnings, pyvips, tifffile
-warnings.filterwarnings('ignore', category=UserWarning)
+# warnings.filterwarnings('ignore', category=UserWarning)
 
 w_size = 256
 stride = 256

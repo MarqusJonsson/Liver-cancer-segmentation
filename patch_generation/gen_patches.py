@@ -63,11 +63,10 @@ if __name__ == "__main__":
 	val_slide_list, test_slide_list = train_test_split(val_slide_list, test_size=0.5, random_state=1234)
 
 	patch_size = 1024
-	patch_overlap = 0.5
+	patch_overlap = 0.8
 	min_tissue_const = 0.8 # minimum 0.8 => 80% or more tissue on every patch
 	min_tissue = patch_size * patch_size * min_tissue_const
-	patch_save_dir = f"../data/patches/ps_{patch_size}_po_{patch_overlap}_mt_{min_tissue_const}_temp"
-
+	patch_save_dir = f"../data/patches/ps_{patch_size}_po_{patch_overlap}_mt_{min_tissue_const}"
 
 	tissue_masks_dir = "../data/tissue_masks"
 
@@ -77,6 +76,7 @@ if __name__ == "__main__":
 		(train_slide_list, "train")
 	]
 	for mode in patch_modes:
+		print(mode[1], "starting")
 		gen_patches(
 			slides_dir,
 			slide_list=mode[0],
@@ -87,3 +87,4 @@ if __name__ == "__main__":
 			min_tissue=min_tissue,
 			patch_overlap=patch_overlap,
 		)
+		print(mode[1], "complete")

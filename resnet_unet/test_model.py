@@ -1,6 +1,6 @@
 import os
-GPUS =  "1,3,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,3,6,7"
+GPUS =  "4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
@@ -23,12 +23,12 @@ BATCH_SIZE = 16
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-TEST_IMG_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/test/tissue"
-TEST_MASK_DIR = "../../patches/ps_1024_po_0.5_mt_0.8/test/viable"
+TEST_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/test/tissue"
+TEST_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/test/viable"
 ENCODER = "resnet50"
 BCE_WEIGHT = 0.1
 TEST_INFO_FILENAME = "test_results.csv"
-MODEL_LOAD_PATH = "exp/vicreg_viable/e_8_l_0.3803_d_20230329T223949Z.pt"
+MODEL_LOAD_PATH = "exp/vicreg_aug_viable_lo_0.8/e_1_l_0.1927_d_20230515T120004Z.pt"
 
 def main():
 	test_transforms = aug.TrainTransform()
