@@ -5,6 +5,9 @@ pred_samples/
 saved_models/
 view_patches/
 exp/
+resnet_unet/models
+patch_generation/ext/vips-8.14.2
+patch_generation/ext/vips-8.14.2.tar.xz
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
