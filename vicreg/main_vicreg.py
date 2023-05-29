@@ -13,7 +13,7 @@ import json
 import math
 import sys
 import time
-from dataset import PAIP2019Dataset
+from dataset import PAIP2019DatasetVICReg
 
 import torch
 import torch.nn.functional as F
@@ -111,7 +111,7 @@ def main(args):
 	TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
 	TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
 
-	train_ds = PAIP2019Dataset(
+	train_ds = PAIP2019DatasetVICReg(
 		image_dir=TRAIN_IMG_DIR,
 		mask_dir=TRAIN_MASK_DIR,
 		transform=transforms,
