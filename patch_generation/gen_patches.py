@@ -36,7 +36,12 @@ def gen_patches(slides_dir, slide_list, dset, patch_size, patch_save_dir, tissue
 			os.makedirs(whole_patch_dir)
 		if not os.path.exists(viable_patch_dir):
 			os.makedirs(viable_patch_dir)
+
 		step = int(patch_size * (1.0 - patch_overlap))
+		if dset == "test":
+			# Don't use overlapping patches for test set
+			step = patch_size
+
 		for i in range(0, wsi_h - patch_size, step):
 			for j in range(0, wsi_w - patch_size, step):
 				tissue_mask_patch = tissue_mask[i:i + patch_size, j:j + patch_size]
@@ -61,7 +66,6 @@ if __name__ == "__main__":
 
 	train_slide_list, val_slide_list = train_test_split(slide_list, test_size=0.2, random_state=1234)
 	val_slide_list, test_slide_list = train_test_split(val_slide_list, test_size=0.5, random_state=1234)
-
 	patch_size = 1024
 	patch_overlap = 0.8
 	min_tissue_const = 0.8 # minimum 0.8 => 80% or more tissue on every patch
@@ -72,8 +76,8 @@ if __name__ == "__main__":
 
 	patch_modes = [
 		(test_slide_list, "test"),
-		(val_slide_list, "val"),
-		(train_slide_list, "train")
+		# (val_slide_list, "val"),
+		# (train_slide_list, "train")
 	]
 	for mode in patch_modes:
 		print(mode[1], "starting")
