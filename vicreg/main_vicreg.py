@@ -6,7 +6,7 @@
 # run using: python3 -m torch.distributed.launch --nproc_per_node=4 main_vicreg.py
 # run using (in python 3.10+?): python3 -m torch.distributed.run --nproc_per_node=4 main_vicreg.py
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 from pathlib import Path
 import argparse
 import json
@@ -196,11 +196,6 @@ def main(args):
 			)
 			torch.save(state, args.exp_dir / "model.pth")
 			modelEpoch = state.get("epoch")
-			print(modelEpoch, 50, "50")
-			print(modelEpoch == 50)
-			print(modelEpoch == "50")
-			print(modelEpoch % 50)
-			print(modelEpoch % 50 == 0)
 			# Save model every 10 epochs
 			if modelEpoch != 0 and modelEpoch % 10 == 0:
 				torch.save(state, args.exp_dir / f"model_epoch_{modelEpoch}.pth")

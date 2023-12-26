@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from CustomTransform import LogarithmicMappingTransform
 from PIL import ImageOps, ImageFilter
 import numpy as np
 import torchvision.transforms as transforms
@@ -43,6 +44,7 @@ class TrainTransform(object):
                 A.Rotate(always_apply=False, p=0.3),
                 A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
                 A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
+                LogarithmicMappingTransform(always_apply=False, p=0.45),
                 ToTensorV2(),
             ]
         )
@@ -53,6 +55,7 @@ class TrainTransform(object):
                 A.Rotate(always_apply=False, p=0.3),
                 A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
                 A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
+                LogarithmicMappingTransform(always_apply=False, p=0.45),
                 ToTensorV2(),
             ]
         )

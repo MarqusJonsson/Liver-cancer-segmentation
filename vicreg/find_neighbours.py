@@ -9,7 +9,7 @@ class PatchData:
 		Initialize the fields of the PatchData class
 		"""
 		self.full_filename: str = full_filename
-		self.parent_name: str = parent_name
+		self.parent_name: str = parent_name # name of original image which the patch was created from
 		self.slide_index: int = slide_index
 		self.x: int = x
 		self.y: int = y

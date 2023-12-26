@@ -35,4 +35,4 @@ def view_patches(patches_path, save_dir, max_amount=99999):
 		save_fig(patch_paths[patch_types[0]][idx], patch_imgs, patch_types, save_dir)
 
 if __name__ == "__main__":
-	view_patches("../data/patches/ps_1024_po_0.5_mt_0.8/train", "view_patches", 10)
+	view_patches("../data/patches/ps_1024_po_0.8_mt_0.8/train", "view_patches", 10)

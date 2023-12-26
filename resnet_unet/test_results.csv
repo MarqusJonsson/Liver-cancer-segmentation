@@ -1,0 +1,2 @@
+test_loss|test_dice|test_acc|test_jaccard|test_jaccard_clipped|check_test_set_perfromance_time|datetime|model_path
+0.19659636914730072|0.845435619354248|0.9303577542304993|0.7365586757659912|0.6606318354606628|147.38828825950623|20231128T023903Z|exp/vicreg_aug_conformal_viable_po_0.8/e_5_l_0.2065_d_20231125T104911Z.pt

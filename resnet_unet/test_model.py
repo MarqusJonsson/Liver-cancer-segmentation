@@ -1,6 +1,6 @@
 import os
-GPUS =  "4,5,6,7"
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
+GPUS =  "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
 import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
@@ -28,7 +28,7 @@ TEST_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/test/viable"
 ENCODER = "resnet50"
 BCE_WEIGHT = 0.1
 TEST_INFO_FILENAME = "test_results.csv"
-MODEL_LOAD_PATH = "exp/vicreg_aug_viable_lo_0.8/e_1_l_0.1927_d_20230515T120004Z.pt"
+MODEL_LOAD_PATH = "exp/vicreg_aug_conformal_viable_po_0.8/e_5_l_0.2065_d_20231125T104911Z.pt"
 
 def main():
 	test_transforms = aug.TrainTransform()

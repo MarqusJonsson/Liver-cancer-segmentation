@@ -1,51 +1,49 @@
 import os
-GPUS = "0,1,2,3"
+GPUS = "2,3"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
 import torch
+from torch import nn
+from torchvision.models import resnet50, ResNet50_Weights
 import torch.nn.functional as F
-import torchvision.transforms as transforms
 from tqdm import tqdm
 import torch.optim as optim
-import segmentation_models_pytorch as smp
-from utils import (
-	calc_dice,
-	calc_jaccard,
-	check_performance,
-	getDatetime,
-	save_dict_as_csv,
-	load_checkpoint,
-	save_checkpoint,
-	get_loaders,
-	save_predictions_as_imgs,
-)
-import time
+# import segmentation_models_pytorch as smp
 import augmentations as aug
+import time
+from utils import (
+    calc_dice,
+    calc_jaccard,
+    get_loaders,
+    getDatetime,
+    load_checkpoint,
+    save_checkpoint,
+    save_dict_as_csv
+)
 
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LEARNING_RATE = 5e-7
 BATCH_SIZE = 16
-MAX_NUM_EPOCHS = 100
+MAX_NUM_EPOCHS = 200
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
-TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
-VAL_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/tissue"
-VAL_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/viable"
+TRAIN_IMG_DIR = "../../data/patches/iciar2018_ps_512_po_0.8/train"
+VAL_IMG_DIR = "../../data/patches/iciar2018_ps_512_po_0.8/val"
 ENCODER = "resnet50"
 ENCODER_WEIGHT_INITIALIZATION = None # None = random weight initialization, "imagenet" = imagenet weight innitialization
 BCE_WEIGHT = 0.1
-MAX_EPOCHS_WITHOUT_IMPROVEMENT = 5
+MAX_EPOCHS_WITHOUT_IMPROVEMENT = 10
 TRAINING_INFO_FILENAME = "results.csv"
 PARAMETER_INFO_FILENAME = "parameters.csv"
-LOAD_MODEL_PATH = "./e_6_l_0.2315_d_20231123T113008Z.pt" # "e_2_l_0.2336_d_20230516T073406Z.pt"
+LOAD_MODEL_PATH = "../../resnet_unet/models/vicreg_aug_80_patch_overlap_resnet50_epoch_10.pth"
+#"../../resnet_unet/models/vicreg_resnet50_epoch_100_batch_size_512.pth"#"e_100_l_0.4898_d_20231212T002113Z.pt"#"../../resnet_unet/models/vicreg_aug_80_patch_overlap_resnet50_epoch_10.pth" # "e_2_l_0.2336_d_20230516T073406Z.pt"
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
 	print("Training model...")
 	loop = tqdm(loader)
 
-	for batch_idx, (data, targets) in enumerate(loop):
+	for batch_idx, (data, targets, _) in enumerate(loop):
 		data = data.float().to(device=DEVICE)
 		targets = targets.float().to(device=DEVICE)
 
@@ -93,11 +91,84 @@ def check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch, 
 
 	return training_info
 
-def main():
-	train_transforms = aug.TrainTransform()
-	val_transforms = aug.TrainTransform()
+def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
+	total_loss = 0
+	total_accuracy = 0
+	model.eval()
 
-	model = smp.Unet(encoder_name=ENCODER, in_channels=3, classes=1, encoder_weights=ENCODER_WEIGHT_INITIALIZATION)
+	result_dict = {}
+
+	with torch.no_grad():
+		loop = tqdm(loader)
+		for batch_idx, (x, y, patch_parent_image_name) in enumerate(loop):
+			x = x.float().to(device)
+			y = y.float().to(device)
+			predictions = model(x)
+			total_loss += loss_fn(predictions, y)
+
+			predictions = torch.sigmoid(predictions)
+
+			# Find the index of the maximum value along the second dimension (axis=1)
+			max_values, max_indices = torch.max(predictions, dim=1)
+			# Create a new tensor with the same shape as predictions, filled with zeros
+			one_hot_predictions = torch.zeros_like(predictions)
+			# Use fancy indexing to set the maximum value in each row to 1
+			one_hot_predictions[torch.arange(predictions.size(0)), max_indices] = 1
+
+			# Check for complete vector equality
+			matching_vectors = (one_hot_predictions == y).all(dim=1)
+			# Count the number of matching vectors
+			num_matching_vectors = matching_vectors.sum().item()
+
+			total_accuracy += num_matching_vectors / len(one_hot_predictions)
+
+
+			for sample_index, sample in enumerate(x):
+				image_name = patch_parent_image_name[sample_index].split(".")[0]
+				if image_name in result_dict:
+					result_dict[image_name]["predictions"] = torch.cat((result_dict[image_name]["predictions"], predictions[sample_index].unsqueeze(0)), dim=0)
+					result_dict[image_name]["one_hot_predictions"] = torch.cat((result_dict[image_name]["one_hot_predictions"], one_hot_predictions[sample_index].unsqueeze(0)), dim=0)
+				else:
+					result_dict[image_name] = {"predictions": predictions[sample_index].unsqueeze(0), "one_hot_predictions": one_hot_predictions[sample_index].unsqueeze(0), "label": y[sample_index].unsqueeze(0)}
+	
+	num_images = 0
+	num_correct_one_hot_predictions = 0
+	num_correct_predictions = 0
+	for image_results_key in result_dict:
+		image_results = result_dict[image_results_key]
+		total_predictions = torch.sum(image_results["predictions"], dim=0)
+		total_one_hot_predictions = torch.sum(image_results["one_hot_predictions"], dim=0)
+		total_label = torch.sum(image_results["label"], dim=0)
+		num_images += 1
+		if total_one_hot_predictions.argmax() == total_label.argmax():
+			num_correct_one_hot_predictions += 1
+		if total_predictions.argmax() == total_label.argmax():
+			num_correct_predictions += 1
+
+	result = {
+		result_prefix + "loss": total_loss / len(loader),
+		result_prefix + "patch_acc": total_accuracy / len(loader),
+		result_prefix + "image_acc": num_correct_predictions / num_images,
+		result_prefix + "image_acc_one_hot": num_correct_one_hot_predictions / num_images,
+	}
+
+	model.train()
+	return result
+
+def main():
+	model = resnet50(weights=None)
+
+	# Freeze parameters
+	# for param in model.parameters():
+		# param.requires_grad = False
+
+	# Define the number of output neurons
+	num_classes = 4
+	# Create the FC layer
+	fc_layer = nn.Linear(model.fc.in_features, num_classes)
+	# Add the FC layer to the end of the model
+	model.fc = fc_layer
+
 	model = torch.nn.DataParallel(model)
 	model = model.to(device=DEVICE)
 
@@ -106,71 +177,42 @@ def main():
 
 		pred = torch.sigmoid(pred)
 		dice_score = calc_dice(pred, target)
-		# jaccard = calc_jaccard(pred, target)
+
 		loss = bce * bce_weight + (1.0 - dice_score) * (1.0 - bce_weight)
 
 		return loss
 
 	loss_fn = calc_loss
-	# loss_fn = nn.BCEWithLogitsLoss() # Logits since we dont sigmoid output of model
+	
 	optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+	train_transforms = aug.TrainTransform()
+	val_transforms = aug.TrainTransform()
 	train_loader, val_loader = get_loaders(
-		TRAIN_IMG_DIR,
-		TRAIN_MASK_DIR,
-		VAL_IMG_DIR,
-		VAL_MASK_DIR,
-		BATCH_SIZE,
-		train_transforms,
-		val_transforms,
-		NUM_WORKERS,
-		PIN_MEMORY,
+			TRAIN_IMG_DIR,
+			VAL_IMG_DIR,
+			BATCH_SIZE,
+			train_transforms,
+			val_transforms,
+			NUM_WORKERS,
+			PIN_MEMORY,
 	)
 
 	if LOAD_MODEL:
 		# Load vicreg encoder
-		# vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
 		# model.module.encoder.load_state_dict(vicreg_state_dict)
+		
+		vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
+		model.load_state_dict(vicreg_state_dict, strict=False)
+		
 		# Load saved model
-		load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
-
-
-		# total_sum = 0
-		# for key, value in vicreg_state_dict.items():
-		# 	total_sum += torch.sum(value)
-
-		# print("The sum of all state dictionary parameters is:", total_sum.item())
-
-		# state_dict = model.state_dict()
-
-		# total_sum = 0
-		# for key, value in state_dict.items():
-		# 	total_sum += torch.sum(value)
-
-		# print("The sum of all state dictionary parameters is:", total_sum.item())
- 
-		# model.module.encoder.load_state_dict(vicreg_state_dict)
-
-		# state_dict = model.state_dict()
-
-		# total_sum = 0
-		# for key, value in state_dict.items():
-		# 	total_sum += torch.sum(value)
-
-		# print("The sum of all state dictionary parameters is:", total_sum.item())
-
 		# load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
-		# print(state_dict.items())
-		# print(model.module)
-
-		# exit()
-	# training_info = check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch=0, train_time=0)
 
 	scaler = torch.cuda.amp.GradScaler()
 
 	epochs_since_last_improvement = 0
-	# best_val_loss = training_info["val_loss"]
-	best_val_loss = 99999
+	best_val_loss = 9999
+
 	# Save hyperparameters
 	save_dict_as_csv(
 		PARAMETER_INFO_FILENAME, {
@@ -183,9 +225,7 @@ def main():
 			"PIN_MEMORY" : PIN_MEMORY,
 			"LOAD_MODEL" : LOAD_MODEL,
 			"TRAIN_IMG_DIR" : TRAIN_IMG_DIR,
-			"TRAIN_MASK_DIR" : TRAIN_MASK_DIR,
 			"VAL_IMG_DIR" : VAL_IMG_DIR,
-			"VAL_MASK_DIR" : VAL_MASK_DIR,
 			"ENCODER" : ENCODER,
 			"ENCODER_WEIGHT_INITIALIZATION" : ENCODER_WEIGHT_INITIALIZATION,
 			"BCE_WEIGHT" : BCE_WEIGHT,
@@ -195,7 +235,9 @@ def main():
 			"LOAD_MODEL_PATH" : LOAD_MODEL_PATH
 		}
 	)
+
 	model.train()
+
 	for epoch in range(MAX_NUM_EPOCHS):
 		# Train model
 		train_start_time = time.time()
@@ -205,14 +247,14 @@ def main():
 		# Check and save model performance
 		training_info = check_and_save_performance(train_loader, val_loader, model, loss_fn, epoch + 1, train_time)
 
-		current_val_loss = training_info['val_loss']
+		current_val_loss = training_info["val_loss"]
 		# Save model checkpoint
 		checkpoint = {
 			"state_dict": model.state_dict(),
 			"optimizer": optimizer.state_dict(),
 		}
 		save_checkpoint(checkpoint, f"e_{epoch + 1}_l_{current_val_loss:.4f}_d_{training_info['datetime']}.pt")
-
+		
 		if current_val_loss < best_val_loss:
 			best_val_loss = current_val_loss
 			epochs_since_last_improvement = 0
