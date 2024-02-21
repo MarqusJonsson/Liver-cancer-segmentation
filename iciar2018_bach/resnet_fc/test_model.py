@@ -16,8 +16,6 @@ from utils import (
 )
 import time
 import augmentations as aug
-from skimage import io
-import numpy as np
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 16
@@ -49,9 +47,6 @@ def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
 			y = y.float().to(device)
 			predictions = model(x)
 			total_loss += loss_fn(predictions, y)
-			t = x.cpu().numpy()[0]
-			t = np.transpose(t, (1, 2, 0))
-			io.imsave("input.png", t)
 
 			predictions = torch.sigmoid(predictions)
 
