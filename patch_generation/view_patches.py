@@ -34,5 +34,22 @@ def view_patches(patches_path, save_dir, max_amount=99999):
 		# patch_mask_img *= 255 # Not needed due to how matplotlib colors the mask image
 		save_fig(patch_paths[patch_types[0]][idx], patch_imgs, patch_types, save_dir)
 
+def view_patch(patch_path):
+	patch_types = os.listdir(patch_path)
+	patch_paths = {}
+	for patch_type in patch_types:
+		patch_paths[patch_type] = os.listdir(os.path.join(patch_path, patch_type))
+	for idx in trange(len(patch_paths[patch_types[0]])):
+		patch_imgs = []
+		for patch_type in patch_paths:
+			if patch_type ==  "viable":
+				img = io.imread(os.path.join(patch_path, patch_type, patch_paths[patch_type][idx]))*255
+				io.imsave(patch_path + "/"+ patch_type + "_" + patch_paths[patch_type][idx], img)
+			else:
+				img = io.imread(os.path.join(patch_path, patch_type, patch_paths[patch_type][idx]))
+				io.imsave(patch_path + "/"+ patch_type + "_" + patch_paths[patch_type][idx], img)
+		
+
 if __name__ == "__main__":
-	view_patches("../data/patches/ps_1024_po_0.8_mt_0.8/train", "view_patches", 10)
+	# view_patches("../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/val", "view_patches", 10)
+	view_patch("./temp2/")

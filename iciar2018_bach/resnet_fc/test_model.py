@@ -16,6 +16,8 @@ from utils import (
 )
 import time
 import augmentations as aug
+from skimage import io
+import numpy as np
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 16
@@ -26,9 +28,9 @@ TEST_IMG_DIR = "../../data/patches/iciar2018_ps_512_po_0.8/test"
 ENCODER = "resnet50"
 BCE_WEIGHT = 0.1
 TEST_INFO_FILENAME = "test_results.csv"
-MODEL_LOAD_PATH = "exp/vicreg_50po/e_52_l_0.6224_d_20231216T073717Z.pt"
+MODEL_LOAD_PATH = "exp/vicreg_aug_e10_unfreeze/e_23_l_0.4030_d_20231220T191317Z.pt"
+#"exp/vicreg_50po/e_52_l_0.6224_d_20231216T073717Z.pt"
 #"exp/vicreg_conformal/e_184_l_0.4960_d_20231215T204616Z.pt"
-#"exp/vicreg_aug_e10_unfreeze/e_23_l_0.4030_d_20231220T191317Z.pt"
 #"exp/vicreg_aug_e10/e_130_l_0.4774_d_20231212T115732Z.pt"
 #"exp/random_3/e_242_l_0.5741_d_20231214T073207Z.pt"
 #"exp/imagenet_1k_v2/e_145_l_0.5128_d_20231215T022436Z.pt"
@@ -47,6 +49,9 @@ def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
 			y = y.float().to(device)
 			predictions = model(x)
 			total_loss += loss_fn(predictions, y)
+			t = x.cpu().numpy()[0]
+			t = np.transpose(t, (1, 2, 0))
+			io.imsave("input.png", t)
 
 			predictions = torch.sigmoid(predictions)
 

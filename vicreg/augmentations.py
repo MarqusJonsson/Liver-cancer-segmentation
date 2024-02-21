@@ -44,7 +44,7 @@ class TrainTransform(object):
                 A.Rotate(always_apply=False, p=0.3),
                 A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
                 A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
-                LogarithmicMappingTransform(always_apply=False, p=0.45),
+                # LogarithmicMappingTransform(always_apply=False, p=0.45),
                 ToTensorV2(),
             ]
         )
@@ -55,7 +55,7 @@ class TrainTransform(object):
                 A.Rotate(always_apply=False, p=0.3),
                 A.Affine(translate_percent=0.05, always_apply=False, p=0.3),
                 A.RandomResizedCrop(height=224, width=224, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
-                LogarithmicMappingTransform(always_apply=False, p=0.45),
+                # LogarithmicMappingTransform(always_apply=False, p=0.45),
                 ToTensorV2(),
             ]
         )

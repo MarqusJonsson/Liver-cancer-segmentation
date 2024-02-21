@@ -1,5 +1,5 @@
 import os
-GPUS =  "7"
+GPUS =  "0,2,3,4"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
 import torch
 import torch.nn.functional as F
@@ -23,12 +23,12 @@ BATCH_SIZE = 16
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-TEST_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/test/tissue"
-TEST_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/test/viable"
+TEST_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/test/tissue"
+TEST_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/test/viable"
 ENCODER = "resnet50"
 BCE_WEIGHT = 0.1
 TEST_INFO_FILENAME = "test_results.csv"
-MODEL_LOAD_PATH = "exp/vicreg_aug_conformal_viable_po_0.8/e_5_l_0.2065_d_20231125T104911Z.pt"
+MODEL_LOAD_PATH = "exp/vicreg_aug_viable_po_0.8/r3-2023-06-27/e_8_l_0.1971_d_20230624T023948Z.pt"
 
 def main():
 	test_transforms = aug.TrainTransform()

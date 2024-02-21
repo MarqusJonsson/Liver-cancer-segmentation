@@ -6,7 +6,7 @@
 # run using: python3 -m torch.distributed.launch --nproc_per_node=4 main_vicreg.py
 # run using (in python 3.10+?): python3 -m torch.distributed.run --nproc_per_node=4 main_vicreg.py
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,4"
 from pathlib import Path
 import argparse
 import json
@@ -108,8 +108,8 @@ def main(args):
 	# 	sampler=sampler,
 	# )
 
-	TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
-	TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
+	TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/train/tissue"
+	TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/train/viable"
 
 	train_ds = PAIP2019DatasetVICReg(
 		image_dir=TRAIN_IMG_DIR,

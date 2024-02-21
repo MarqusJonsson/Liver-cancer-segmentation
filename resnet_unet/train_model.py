@@ -1,5 +1,5 @@
 import os
-GPUS = "0,1,2,3"
+GPUS = "3,4"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPUS
 import torch
 import torch.nn.functional as F
@@ -20,7 +20,6 @@ from utils import (
 )
 import time
 import augmentations as aug
-
 # Hyperparameters etc.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LEARNING_RATE = 5e-7
@@ -29,17 +28,17 @@ MAX_NUM_EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/tissue"
-TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/train/viable"
-VAL_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/tissue"
-VAL_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8/val/viable"
+TRAIN_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/train/tissue"
+TRAIN_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/train/viable"
+VAL_IMG_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/val/tissue"
+VAL_MASK_DIR = "../data/patches/ps_1024_po_0.8_mt_0.8_tr80_v10_te10/val/viable"
 ENCODER = "resnet50"
 ENCODER_WEIGHT_INITIALIZATION = None # None = random weight initialization, "imagenet" = imagenet weight innitialization
 BCE_WEIGHT = 0.1
 MAX_EPOCHS_WITHOUT_IMPROVEMENT = 5
 TRAINING_INFO_FILENAME = "results.csv"
 PARAMETER_INFO_FILENAME = "parameters.csv"
-LOAD_MODEL_PATH = "./e_6_l_0.2315_d_20231123T113008Z.pt" # "e_2_l_0.2336_d_20230516T073406Z.pt"
+LOAD_MODEL_PATH = "./e_1_l_0.3065_d_20240129T110141Z.pt"#"../vicreg/exp/bs512_is224_20240124/resnet50_epoch_30.pth"#"./models/vicreg_aug_80_patch_overlap_resnet50_epoch_10.pth" # "e_2_l_0.2336_d_20230516T073406Z.pt"
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
 	print("Training model...")
@@ -130,7 +129,11 @@ def main():
 	if LOAD_MODEL:
 		# Load vicreg encoder
 		# vicreg_state_dict = torch.load(LOAD_MODEL_PATH)
-		# model.module.encoder.load_state_dict(vicreg_state_dict)
+		# # model.module.encoder.load_state_dict(vicreg_state_dict)
+		# # missing_keys, unexpected_keys = 
+		# model.module.encoder.load_state_dict(vicreg_state_dict, strict=True)
+		# print("MISSING KEYS:", missing_keys)
+		# print("UNEXPECTED KEYS:", unexpected_keys)
 		# Load saved model
 		load_checkpoint(torch.load(LOAD_MODEL_PATH), model)
 

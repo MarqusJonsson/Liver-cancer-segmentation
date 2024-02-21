@@ -31,7 +31,7 @@ def find_neighbours(filename: str, filenames_set: Set[str], patch_size: int, pat
 	Given a filename and a set of filenames, returns a list of filenames that
 	are considered to be neighbours of the input filename.
 	"""
-	patch_offset = int(patch_size * patch_overlap)
+	patch_offset = int(patch_size * (1.0 - patch_overlap))
 	neighbours = []
 	patch_data = extract_patch_data(filename)
 	for x_offset in range(-patch_offset, patch_offset + 1, patch_offset):

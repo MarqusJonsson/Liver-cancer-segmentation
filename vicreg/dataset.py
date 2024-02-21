@@ -11,7 +11,7 @@ class PAIP2019DatasetVICReg(Dataset):
 		self.mask_dir = mask_dir
 		self.transform = transform
 		self.images = os.listdir(image_dir)
-		self.neighbour_dict = find_neighbours.create_patch_neighbour_dict(self.images)
+		self.neighbour_dict = find_neighbours.create_patch_neighbour_dict(self.images, patch_overlap=0.8)
 
 	def __len__(self):
 		return len(self.images)

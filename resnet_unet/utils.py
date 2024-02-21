@@ -107,13 +107,12 @@ def calc_jaccard(predictions, targets):
 # 	return score
 
 def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
-	num_correct = 0
-	num_pixels = 0
 	total_dice_score = 0
 	total_jaccard_score = 0
 	total_jaccard_score_clipped = 0
 	jaccard_score_clip_threshold = 0.65
 	total_loss = 0
+	total_accuracy = 0
 	model.eval()
 
 	with torch.no_grad():
@@ -126,19 +125,20 @@ def check_performance(loader, model, loss_fn, result_prefix="", device="cuda"):
 			predictions = torch.sigmoid(predictions)
 			#  convert to binary tensors
 			predictions = (predictions > 0.5).float()
-			accuracy = torch.mean((predictions == y).float())
+			total_accuracy += torch.mean((predictions == y).float())
 			total_dice_score += calc_dice(predictions, y)
 			jaccard_score = calc_jaccard(predictions, y)
 			total_jaccard_score += jaccard_score
 			if jaccard_score >= jaccard_score_clip_threshold:
 				total_jaccard_score_clipped += jaccard_score
 
+	loader_len = len(loader)
 	result = {
-		result_prefix + "loss": total_loss/len(loader),
-		result_prefix + "dice": total_dice_score/len(loader),
-		result_prefix + "acc": accuracy, # num_correct/num_pixels,
-		result_prefix + "jaccard": total_jaccard_score/len(loader),
-		result_prefix + "jaccard_clipped": total_jaccard_score_clipped/len(loader),
+		result_prefix + "loss": total_loss/loader_len,
+		result_prefix + "dice": total_dice_score/loader_len,
+		result_prefix + "acc": total_accuracy/loader_len, # num_correct/num_pixels,
+		result_prefix + "jaccard": total_jaccard_score/loader_len,
+		result_prefix + "jaccard_clipped": total_jaccard_score_clipped/loader_len,
 	}
 
 	model.train()
